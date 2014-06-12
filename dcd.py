@@ -8,10 +8,29 @@ from wtforms import Form, validators
 from wtforms import TextField, PasswordField, TextAreaField
 from flask.ext.sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import validates
+from celery import Celery, Task, chain
+from celery.task import current
+
+
+def make_celery(app):
+    celery = Celery("dcd", broker=app.config['CELERY_BROKER_URL'])
+    celery.conf.update(app.config)
+    TaskBase = celery.Task
+
+    class ContextTask(TaskBase):
+        abstract = True
+
+        def __call__(self, *args, **kwargs):
+            with app.app_context():
+                return TaskBase.__call__(self, *args, **kwargs)
+    celery.Task = ContextTask
+    return celery
+
 
 app = Flask(__name__)
 app.config.from_envvar('DCD_SETTINGS')
 db = SQLAlchemy(app)
+celery = make_celery(app)
 
 
 class DeployForm(Form):
@@ -24,23 +43,26 @@ class DeployForm(Form):
 
 class Record(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.String(100))
     endpoint = db.Column(db.String(4096))
     username = db.Column(db.String(4096))
     msg = db.Column(db.Text())
     memo = db.Column(db.Text())
     ip = db.Column(db.String(100))
+    instance_id = db.Column(db.String(100))
+    instance_status = db.Column(db.String(100))
     timestamp = db.Column(db.DateTime())
 
-    def __init__(self, endpoint, username, msg, memo):
+    def __init__(self, task_id, endpoint, username, memo, client_ip):
+        self.task_id = task_id
         self.endpoint = endpoint
         self.username = username
-        self.msg = msg
         self.memo = memo
-        self.ip = request.remote_addr
+        self.ip = client_ip
         self.timestamp = datetime.now()
 
     def __repr__(self):
-        return '<Record %r, %r>' % (self.ip, self.endpoint)
+        return '<Record %r, %r, %r>' % (self.id, self.task_id, self.endpoint)
 
     @validates('endpoint')
     def validate_endpoint(self, key, endpoint):
@@ -53,48 +75,83 @@ class Record(db.Model):
         return username
 
 
-@app.route("/", methods=['GET', 'POST'])
-def deploy():
-    form = DeployForm(request.form)
-    status = ""
-    msg = ""
-    errmsg = ""
-    if request.method == 'POST' and form.validate():
-        try:
-            nova = Client(2, form.username.data, form.password.data,
-                          form.project.data, form.endpoint.data)
-            image = nova.images.list()[0]
-            flavor = nova.flavors.list()[0]
-            nova.servers.create(
-                'dcd-test', image, flavor, min_count=1, max_count=2)
-            status = "success"
-            msg = "Successfully deployed"
-        except exceptions.ClientException as e:
-            status = "error"
-            msg = str(e)
-            errmsg = str(e)
-        except requests.exceptions.ConnectionError as e:
-            status = "error"
-            msg = "Fail to connect to %s" % form.endpoint.data
-            errmsg = str(e)
-        except IndexError as e:
-            status = "error"
+class DeployTask(Task):
+    def on_success(self, retval, task_id, args, kwargs):
+        record = Record.query.filter_by(task_id=task_id).first()
+        record.instance_id = retval['instance_id']
+        db.session.commit()
+
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        if isinstance(exc, exceptions.ClientException):
+            msg = exc.message
+        elif isinstance(exc, requests.exceptions.ConnectionError):
+            msg = "Fail to connect to '%s'" % kwargs['endpoint']
+        elif isinstance(exc, IndexError):
             msg = "No valid image or flavor"
-            errmsg = str(e)
+        else:
+            msg = "Something goes wrong, send '%s' to the administrator."\
+                % task_id
+
+        record = Record.query.filter_by(task_id=task_id).first()
+        record.msg = msg
+        db.session.commit()
+
+
+@celery.task()
+def check_instance_status(kwargs):
+    nova = Client(kwargs['version'], kwargs['username'], kwargs['password'],
+                  kwargs['project'], kwargs['endpoint'])
+    instance = nova.servers.get(kwargs['instance_id'])
+
+    if instance.status == "BUILD":
+        try:
+            raise Exception("Still building")
         except Exception as e:
-            status = "error"
-            msg = "Something goes wrong, you might want to contact the admin."
-            errmsg = str(e)
-        finally:
-            try:
-                record = Record(form.endpoint.data, form.username.data,
-                                errmsg, form.memo.data)
-                db.session.add(record)
-                db.session.commit()
-            except Exception as e:
-                print str(e)
-            return render_template("form.html", form=form,
-                                   status=status, msg=msg)
+            interval = min(10 * (2 ** current.request.retries), 1800)
+            raise current.retry(args=[kwargs], exc=e,
+                                countdown=interval, max_retries=8)
+    else:
+        kwargs['instance_status'] = instance.status
+
+        record = Record.query.\
+            filter_by(instance_id=kwargs['instance_id']).first()
+        record.instance_status = kwargs['instance_status']
+        db.session.commit()
+
+        return kwargs
+
+
+@celery.task(base=DeployTask)
+def deploy(**kwargs):
+    record = Record(deploy.request.id, kwargs['endpoint'], kwargs['username'],
+                    kwargs['memo'], kwargs['client_ip'])
+    db.session.add(record)
+    db.session.commit()
+
+    nova = Client(kwargs['version'], kwargs['username'], kwargs['password'],
+                  kwargs['project'], kwargs['endpoint'])
+    image = nova.images.list()[0]
+    flavor = nova.flavors.list()[0]
+    instance = nova.servers.create(
+        'dcd-test', image, flavor, min_count=1, max_count=1)
+    kwargs['instance_id'] = instance.id
+
+    return kwargs
+
+
+@app.route("/", methods=['GET', 'POST'])
+def dcd():
+    form = DeployForm(request.form)
+    if request.method == 'POST' and form.validate():
+        chain(deploy.s(version=2,
+                       username=form.username.data,
+                       password=form.password.data,
+                       project=form.project.data,
+                       endpoint=form.endpoint.data,
+                       memo=form.memo.data,
+                       client_ip=request.remote_addr),
+              check_instance_status.s())()
+        return render_template("form.html", form=form)
 
     return render_template("form.html", form=form)
 

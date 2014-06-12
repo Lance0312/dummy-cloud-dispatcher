@@ -15,7 +15,7 @@
       {% elif status == "error" %}
       <p class="bg-danger">{{ msg }}</p>
       {% endif %}
-      <form role="form" method="post" action="{{ url_for("deploy") }}">
+      <form role="form" method="post" action="{{ url_for("dcd") }}">
         <div class="form-group {% if form.endpoint.errors %}has-warning has-feedback{% endif %}">
           {{ form.endpoint.label(class="control-label") }}
           {{ form.endpoint(class="form-control", placeholder="http://1.2.3.4:5000/v2.0/") }}
