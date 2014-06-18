@@ -80,7 +80,11 @@ class DeployTask(Task):
     def on_success(self, retval, task_id, args, kwargs):
         record = Record.query.filter_by(task_id=task_id).first()
         record.instance_id = retval['instance_id']
-        db.session.commit()
+        try:
+            db.session.commit()
+        except:
+            db.session.rollback()
+            raise
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         if isinstance(exc, exceptions.ClientException):
@@ -95,7 +99,11 @@ class DeployTask(Task):
 
         record = Record.query.filter_by(task_id=task_id).first()
         record.msg = msg
-        db.session.commit()
+        try:
+            db.session.commit()
+        except:
+            db.session.rollback()
+            raise
 
 
 @celery.task()
@@ -117,7 +125,11 @@ def check_instance_status(kwargs):
         record = Record.query.\
             filter_by(instance_id=kwargs['instance_id']).first()
         record.instance_status = kwargs['instance_status']
-        db.session.commit()
+        try:
+            db.session.commit()
+        except:
+            db.session.rollback()
+            raise
 
         return kwargs
 
@@ -126,8 +138,12 @@ def check_instance_status(kwargs):
 def deploy(**kwargs):
     record = Record(deploy.request.id, kwargs['endpoint'], kwargs['username'],
                     kwargs['memo'], kwargs['client_ip'])
-    db.session.add(record)
-    db.session.commit()
+    try:
+        db.session.add(record)
+        db.session.commit()
+    except:
+        db.session.rollback()
+        raise
 
     nova = Client(kwargs['version'], kwargs['username'], kwargs['password'],
                   kwargs['project'], kwargs['endpoint'])
