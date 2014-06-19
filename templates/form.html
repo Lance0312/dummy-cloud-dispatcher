@@ -10,10 +10,8 @@
   <div class="container">
     <div class="jumbotron">
       <h1>Dummy Cloud Dispatcher</h1>
-      {% if status == "success" %}
-      <p class="bg-success">{{ msg }}</p>
-      {% elif status == "error" %}
-      <p class="bg-danger">{{ msg }}</p>
+      {% if result %}
+      <p class="bg-success">Result will be sent to {{ form.email_addr.data }} in minutes</p>
       {% endif %}
       <form role="form" method="post" action="{{ url_for("dcd") }}">
         <div class="form-group {% if form.endpoint.errors %}has-warning has-feedback{% endif %}">
@@ -47,6 +45,13 @@
         <div class="form-group">
           {{ form.memo.label(class="control-label") }}
           {{ form.memo(class="form-control", rows="4") }}
+        </div>
+        <div class="form-group {% if form.email_addr.errors %}has-warning has-feedback{% endif %}">
+          {{ form.email_addr.label(class="control-label") }}
+          {{ form.email_addr(class="form-control") }}
+          {% if form.email_addr.errors %}
+          <span class="glyphicon glyphicon-warning-sign form-control-feedback"></span>
+          {% endif %}
         </div>
         <button type="submit" class="btn btn-primary btn-lg btn-block">Deploy</button>
       </form>

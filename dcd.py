@@ -10,6 +10,7 @@ from flask.ext.sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import validates
 from celery import Celery, Task, chain
 from celery.task import current
+from flask_mail import Mail, Message
 
 
 def make_celery(app):
@@ -32,6 +33,7 @@ app = Flask(__name__)
 app.config.from_envvar('DCD_SETTINGS')
 db = SQLAlchemy(app)
 celery = make_celery(app)
+mail = Mail(app)
 
 
 class DeployForm(Form):
@@ -40,6 +42,8 @@ class DeployForm(Form):
     project = TextField('Project Name', [validators.InputRequired()])
     endpoint = TextField('Endpoint', [validators.InputRequired()])
     memo = TextAreaField('Memo')
+    email_addr = TextField('Email Address', [validators.InputRequired(),
+                                             validators.Email()])
 
 
 class Record(db.Model):
@@ -76,6 +80,31 @@ class Record(db.Model):
         return username
 
 
+def send_mail(recipient, task_id, instance_id=None, instance_status=None,
+              errmsg=None, memo=None):
+    with app.app_context():
+        msg = Message("[Dummy Cloud Dispatcher] Instance Deploy Results",
+                      recipients=[recipient, ])
+
+        if instance_id:
+            msg.body = """
+Task ID: %s
+Instance ID: %s
+Instance Status: %s
+Memo:
+%s
+""" % (task_id, instance_id, instance_status, memo)
+        else:
+            msg.body = """
+Task ID: %s
+Error Message: %s
+Memo:
+%s
+""" % (task_id, errmsg, memo)
+
+        mail.send(msg)
+
+
 class DeployTask(Task):
     def on_success(self, retval, task_id, args, kwargs):
         record = Record.query.filter_by(task_id=task_id).first()
@@ -101,6 +130,10 @@ class DeployTask(Task):
         record.msg = msg
         try:
             db.session.commit()
+            send_mail(kwargs['email_addr'],
+                      task_id=record.task_id,
+                      errmsg=record.msg,
+                      memo=record.memo)
         except:
             db.session.rollback()
             raise
@@ -127,6 +160,11 @@ def check_instance_status(kwargs):
         record.instance_status = kwargs['instance_status']
         try:
             db.session.commit()
+            send_mail(kwargs['email_addr'],
+                      task_id=record.task_id,
+                      instance_id=record.instance_id,
+                      instance_status=record.instance_status,
+                      memo=record.memo)
         except:
             db.session.rollback()
             raise
@@ -166,9 +204,10 @@ def dcd():
                        project=form.project.data,
                        endpoint=form.endpoint.data,
                        memo=form.memo.data,
+                       email_addr=form.email_addr.data,
                        client_ip=request.remote_addr),
               check_instance_status.s())()
-        return render_template("form.html", form=form)
+        return render_template("form.html", form=form, result=True)
 
     return render_template("form.html", form=form)
 
