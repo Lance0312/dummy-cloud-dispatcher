@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if task_status == "SUCCESS" %}
+{% include "task_success.html" %}
+{% elif task_status == "FAILURE" %}
+{% include "task_failed.html" %}
+{% else %}
+{% include "task_unknown.html" %}
+{% endif %}
+{% endblock %}

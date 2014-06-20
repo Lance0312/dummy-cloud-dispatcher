@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
+{% if result %}
+<p class="alert alert-success"><a href="/status/{{ task_id }}">Check the deploy status here</a>, or the result will be sent to {{ form.email_addr.data }} in minutes</p>
+{% endif %}
 <div class="jumbotron">
-  {% if result %}
-  <p class="bg-success">Result will be sent to {{ form.email_addr.data }} in minutes</p>
-  {% endif %}
   <form role="form" method="post" action="{{ url_for("dcd") }}">
     <div class="form-group {% if form.endpoint.errors %}has-warning has-feedback{% endif %}">
       {{ form.endpoint.label(class="control-label") }}

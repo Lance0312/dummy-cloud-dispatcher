@@ -1,0 +1,18 @@
+<div class="jumbotron">
+  <h2>Task {{ task_id }}</h2>
+
+  <h3>Status</h3>
+  {% if instance_status == "ACTIVE" %}
+  <p><span class="label label-success">Instance Active</span></p>
+  {% elif instance_status == "ERROR" %}
+  <p><span class="label label-danger">Instance Error</span></p>
+  {% else %}
+  <p><span class="label label-default">{{ instance_status }}</span></p>
+  {% endif %}
+
+  <h3>Instance ID</h3>
+  <p>{{ instance_id }}</p>
+
+  <h3>Memo</h3>
+  <p>{{ memo }}</p>
+</div>
