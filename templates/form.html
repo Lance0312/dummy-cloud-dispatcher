@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 {% if result %}
+{% if form.email_addr.data %}
 <p class="alert alert-success"><a href="/status/{{ task_id }}">Check the deploy status here</a>, or the result will be sent to {{ form.email_addr.data }} in minutes</p>
+{% else %}
+<p class="alert alert-success"><a href="/status/{{ task_id }}">Check the deploy status here</a></p>
+{% endif %}
 {% endif %}
 <div class="jumbotron">
   <form role="form" method="post" action="{{ url_for("dcd") }}">

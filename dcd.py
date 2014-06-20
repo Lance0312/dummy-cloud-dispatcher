@@ -44,8 +44,8 @@ class DeployForm(Form):
     project = TextField('Project Name', [validators.InputRequired()])
     endpoint = TextField('Endpoint', [validators.InputRequired()])
     memo = TextAreaField('Memo')
-    email_addr = TextField('Email Address', [validators.InputRequired(),
-                                             validators.Email()])
+    email_addr = TextField('Email Address (optional)', [validators.Optional(),
+                                                        validators.Email()])
 
 
 class Record(db.Model):
@@ -140,10 +140,11 @@ class DeployTask(Task):
         record.msg = msg
         try:
             db.session.commit()
-            send_mail(kwargs['email_addr'],
-                      task_id=record.task_id,
-                      errmsg=record.msg,
-                      memo=record.memo)
+            if kwargs['email_addr']:
+                send_mail(kwargs['email_addr'],
+                          task_id=record.task_id,
+                          errmsg=record.msg,
+                          memo=record.memo)
         except:
             db.session.rollback()
             raise
@@ -170,11 +171,12 @@ def check_instance_status(kwargs):
         record.instance_status = kwargs['instance_status']
         try:
             db.session.commit()
-            send_mail(kwargs['email_addr'],
-                      task_id=record.task_id,
-                      instance_id=record.instance_id,
-                      instance_status=record.instance_status,
-                      memo=record.memo)
+            if kwargs['email_addr']:
+                send_mail(kwargs['email_addr'],
+                          task_id=record.task_id,
+                          instance_id=record.instance_id,
+                          instance_status=record.instance_status,
+                          memo=record.memo)
         except:
             db.session.rollback()
             raise
