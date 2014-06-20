@@ -48,6 +48,13 @@
       <span class="glyphicon glyphicon-warning-sign form-control-feedback"></span>
       {% endif %}
     </div>
+    <div class="form-group {% if form.captcha.errors %}has-warning has-feedback{% endif %}">
+      {{ form.captcha.label(class="control-label") }}
+      {{ form.captcha }}
+      {% if form.captcha.errors %}
+      <span class="glyphicon glyphicon-warning-sign form-control-feedback"></span>
+      {% endif %}
+    </div>
     <button type="submit" class="btn btn-primary btn-lg btn-block">Deploy</button>
   </form>
 </div>

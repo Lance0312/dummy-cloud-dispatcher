@@ -7,6 +7,7 @@ from novaclient import exceptions
 from flask import Flask, render_template, request
 from wtforms import Form, validators
 from wtforms import TextField, PasswordField, TextAreaField
+from wtfrecaptcha.fields import RecaptchaField
 from flask.ext.sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import validates
 from celery import Celery, Task, chain
@@ -46,6 +47,10 @@ class DeployForm(Form):
     memo = TextAreaField('Memo')
     email_addr = TextField('Email Address (optional)', [validators.Optional(),
                                                         validators.Email()])
+    captcha = RecaptchaField('Captcha',
+                             public_key=app.config['RECAPTCHA_PUB_KEY'],
+                             private_key=app.config['RECAPTCHA_PRIV_KEY'],
+                             secure=True)
 
 
 class Record(db.Model):
@@ -208,7 +213,8 @@ def deploy(**kwargs):
 
 @app.route("/", methods=['GET', 'POST'])
 def dcd():
-    form = DeployForm(request.form)
+    form = DeployForm(request.form,
+                      captcha={'ip_address': request.remote_addr})
     if request.method == 'POST' and form.validate():
         task = chain(deploy.s(version=2,
                               username=form.username.data,
