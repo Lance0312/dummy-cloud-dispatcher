@@ -1,61 +1,50 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dummy Cloud Dispatcher</title>
-  <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
-</head>
-<body>
-  <div class="container">
-    <div class="jumbotron">
-      <h1>Dummy Cloud Dispatcher</h1>
-      {% if result %}
-      <p class="bg-success">Result will be sent to {{ form.email_addr.data }} in minutes</p>
+{% extends "base.html" %}
+{% block content %}
+<div class="jumbotron">
+  {% if result %}
+  <p class="bg-success">Result will be sent to {{ form.email_addr.data }} in minutes</p>
+  {% endif %}
+  <form role="form" method="post" action="{{ url_for("dcd") }}">
+    <div class="form-group {% if form.endpoint.errors %}has-warning has-feedback{% endif %}">
+      {{ form.endpoint.label(class="control-label") }}
+      {{ form.endpoint(class="form-control", placeholder="http://1.2.3.4:5000/v2.0/") }}
+      {% if form.endpoint.errors %}
+      <span class="glyphicon glyphicon-warning-sign form-control-feedback"></span>
       {% endif %}
-      <form role="form" method="post" action="{{ url_for("dcd") }}">
-        <div class="form-group {% if form.endpoint.errors %}has-warning has-feedback{% endif %}">
-          {{ form.endpoint.label(class="control-label") }}
-          {{ form.endpoint(class="form-control", placeholder="http://1.2.3.4:5000/v2.0/") }}
-          {% if form.endpoint.errors %}
-          <span class="glyphicon glyphicon-warning-sign form-control-feedback"></span>
-          {% endif %}
-        </div>
-        <div class="form-group {% if form.username.errors %}has-warning has-feedback{% endif %}">
-          {{ form.username.label(class="control-label") }}
-          {{ form.username(class="form-control") }}
-          {% if form.username.errors %}
-          <span class="glyphicon glyphicon-warning-sign form-control-feedback"></span>
-          {% endif %}
-        </div>
-        <div class="form-group {% if form.password.errors %}has-warning has-feedback{% endif %}">
-          {{ form.password.label(class="control-label") }}
-          {{ form.password(class="form-control") }}
-          {% if form.password.errors %}
-          <span class="glyphicon glyphicon-warning-sign form-control-feedback"></span>
-          {% endif %}
-        </div>
-        <div class="form-group {% if form.project.errors %}has-warning has-feedback{% endif %}">
-          {{ form.project.label(class="control-label") }}
-          {{ form.project(class="form-control") }}
-          {% if form.project.errors %}
-          <span class="glyphicon glyphicon-warning-sign form-control-feedback"></span>
-          {% endif %}
-        </div>
-        <div class="form-group">
-          {{ form.memo.label(class="control-label") }}
-          {{ form.memo(class="form-control", rows="4") }}
-        </div>
-        <div class="form-group {% if form.email_addr.errors %}has-warning has-feedback{% endif %}">
-          {{ form.email_addr.label(class="control-label") }}
-          {{ form.email_addr(class="form-control") }}
-          {% if form.email_addr.errors %}
-          <span class="glyphicon glyphicon-warning-sign form-control-feedback"></span>
-          {% endif %}
-        </div>
-        <button type="submit" class="btn btn-primary btn-lg btn-block">Deploy</button>
-      </form>
     </div>
-  </div>
-</body>
-</html>
+    <div class="form-group {% if form.username.errors %}has-warning has-feedback{% endif %}">
+      {{ form.username.label(class="control-label") }}
+      {{ form.username(class="form-control") }}
+      {% if form.username.errors %}
+      <span class="glyphicon glyphicon-warning-sign form-control-feedback"></span>
+      {% endif %}
+    </div>
+    <div class="form-group {% if form.password.errors %}has-warning has-feedback{% endif %}">
+      {{ form.password.label(class="control-label") }}
+      {{ form.password(class="form-control") }}
+      {% if form.password.errors %}
+      <span class="glyphicon glyphicon-warning-sign form-control-feedback"></span>
+      {% endif %}
+    </div>
+    <div class="form-group {% if form.project.errors %}has-warning has-feedback{% endif %}">
+      {{ form.project.label(class="control-label") }}
+      {{ form.project(class="form-control") }}
+      {% if form.project.errors %}
+      <span class="glyphicon glyphicon-warning-sign form-control-feedback"></span>
+      {% endif %}
+    </div>
+    <div class="form-group">
+      {{ form.memo.label(class="control-label") }}
+      {{ form.memo(class="form-control", rows="4") }}
+    </div>
+    <div class="form-group {% if form.email_addr.errors %}has-warning has-feedback{% endif %}">
+      {{ form.email_addr.label(class="control-label") }}
+      {{ form.email_addr(class="form-control") }}
+      {% if form.email_addr.errors %}
+      <span class="glyphicon glyphicon-warning-sign form-control-feedback"></span>
+      {% endif %}
+    </div>
+    <button type="submit" class="btn btn-primary btn-lg btn-block">Deploy</button>
+  </form>
+</div>
+{% endblock %}
